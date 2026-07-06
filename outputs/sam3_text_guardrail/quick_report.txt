@@ -1,0 +1,11 @@
+SAM 3 Preliminary Output Statistics
+===================================
+
+Number of images: 57
+Images with at least one detected mask: 57
+Detection presence rate: 100.00%
+Average number of masks per image: 24.35
+Average confidence: 0.700
+
+Important note:
+These values are model-output statistics, not true accuracy metrics. To compute true accuracy, ground-truth annotations are required.
