@@ -185,3 +185,6 @@ cython_debug/
 
 # Models
 *.pt
+/arhias_slam
+/outputs - Copy
+/outputs
