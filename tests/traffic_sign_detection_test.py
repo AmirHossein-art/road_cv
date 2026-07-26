@@ -20,6 +20,7 @@ MODEL_PATH = PROJECT_ROOT / "sam3.pt"
 # داخل این پوشه فعلاً حدود 20 تصویر که مطمئنی تابلو دارند قرار بده.
 IMAGE_DIR = PROJECT_ROOT / "traffic_sign_benchmark"
 
+# Output dircetion name is sam3_traffic_sign_detection_ImageSize_ConfidenceThreshold
 OUTPUT_DIR = PROJECT_ROOT / "outputs" / "sam3_traffic_sign_detection_644_0.20"
 ANNOTATED_DIR = OUTPUT_DIR / "annotated"
 INSTANCE_DIR = OUTPUT_DIR / "instances"
@@ -30,17 +31,17 @@ INSTANCE_DIR.mkdir(parents=True, exist_ok=True)
 IMAGE_SUMMARY_CSV = OUTPUT_DIR / "image_summary.csv"
 DETECTIONS_CSV = OUTPUT_DIR / "detections.csv"
 
+# Apparent-size filtering
+# این‌ها روی ابعاد تصویر اصلی اعمال می‌شوند، نه IMAGE_SIZE مدل.
+MIN_BOX_HEIGHT_RATIO = 0.0125
+MIN_BOX_AREA_RATIO = 0.00012
 
 # =============================================================================
 # 2. Test configuration
 # =============================================================================
 
-# فعلاً فقط 20 تصویر اول پردازش شوند.
-# بعد از موفقیت تست می‌توانی مقدار را 100 یا None بگذاری.
-TEST_IMAGE_LIMIT = 20
+TEST_IMAGE_LIMIT = 100
 
-# در تست اول فقط یک prompt عمومی استفاده می‌کنیم.
-# استفاده از چند synonym مشابه ممکن است یک تابلو را چند بار تشخیص دهد.
 PROMPTS = [
     "traffic sign",
 ]
@@ -287,6 +288,80 @@ def extract_result_arrays(
     return boxes_xyxy, confidences, class_ids, masks
 
 
+def filter_near_candidates_by_apparent_size(
+    boxes_xyxy: np.ndarray,
+    confidences: np.ndarray,
+    class_ids: np.ndarray,
+    masks: np.ndarray,
+    image_height: int,
+    image_width: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Remove detections that appear too small in the original image.
+
+    Important:
+        This is only an apparent-size filter, not a true metric-distance filter.
+
+    Returns:
+        filtered boxes
+        filtered confidences
+        filtered class IDs
+        filtered masks
+        keep indices
+    """
+
+    if len(boxes_xyxy) == 0:
+        return (
+            boxes_xyxy,
+            confidences,
+            class_ids,
+            masks,
+            np.empty((0,), dtype=np.int64),
+        )
+
+    box_widths = np.maximum(
+        boxes_xyxy[:, 2] - boxes_xyxy[:, 0],
+        0.0,
+    )
+
+    box_heights = np.maximum(
+        boxes_xyxy[:, 3] - boxes_xyxy[:, 1],
+        0.0,
+    )
+
+    box_areas = box_widths * box_heights
+
+    height_ratios = box_heights / float(image_height)
+
+    area_ratios = box_areas / float(
+        image_width * image_height
+    )
+
+    keep_mask = (
+        (height_ratios >= MIN_BOX_HEIGHT_RATIO)
+        & (area_ratios >= MIN_BOX_AREA_RATIO)
+    )
+
+    keep_indices = np.flatnonzero(keep_mask)
+
+    filtered_boxes = boxes_xyxy[keep_indices]
+    filtered_confidences = confidences[keep_indices]
+    filtered_class_ids = class_ids[keep_indices]
+
+    if len(masks) == len(boxes_xyxy):
+        filtered_masks = masks[keep_indices]
+    else:
+        filtered_masks = masks
+
+    return (
+        filtered_boxes,
+        filtered_confidences,
+        filtered_class_ids,
+        filtered_masks,
+        keep_indices,
+    )
+
+
 # =============================================================================
 # 4. Main
 # =============================================================================
@@ -517,14 +592,41 @@ def main() -> None:
                         len(boxes_xyxy),
                         len(confidences),
                         len(class_ids),
+                        len(resized_masks),
                     )
 
                     boxes_xyxy = boxes_xyxy[:aligned_count]
                     confidences = confidences[:aligned_count]
                     class_ids = class_ids[:aligned_count]
+                    resized_masks = resized_masks[:aligned_count]
 
                     if len(resized_masks) > aligned_count:
                         resized_masks = resized_masks[:aligned_count]
+
+                    raw_detection_count = aligned_count
+
+                    (
+                        boxes_xyxy,
+                        confidences,
+                        class_ids,
+                        resized_masks,
+                        kept_indices,
+                    ) = filter_near_candidates_by_apparent_size(
+                        boxes_xyxy=boxes_xyxy,
+                        confidences=confidences,
+                        class_ids=class_ids,
+                        masks=resized_masks,
+                        image_height=image_height,
+                        image_width=image_width,
+                    )
+
+                    filtered_detection_count = len(boxes_xyxy)
+
+                    tqdm.write(
+                        f"{image_path.name}: "
+                        f"raw={raw_detection_count}, "
+                        f"kept_after_size_filter={filtered_detection_count}"
+                    )
 
                     # ---------------------------------------------------------
                     # Draw detections
