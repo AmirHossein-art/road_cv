@@ -17,7 +17,6 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 MODEL_PATH = PROJECT_ROOT / "sam3.pt"
 
-# داخل این پوشه فعلاً حدود 20 تصویر که مطمئنی تابلو دارند قرار بده.
 IMAGE_DIR = PROJECT_ROOT / "traffic_sign_benchmark"
 
 # Output dircetion name is sam3_traffic_sign_detection_ImageSize_ConfidenceThreshold
@@ -32,7 +31,6 @@ IMAGE_SUMMARY_CSV = OUTPUT_DIR / "image_summary.csv"
 DETECTIONS_CSV = OUTPUT_DIR / "detections.csv"
 
 # Apparent-size filtering
-# این‌ها روی ابعاد تصویر اصلی اعمال می‌شوند، نه IMAGE_SIZE مدل.
 MIN_BOX_HEIGHT_RATIO = 0.0125
 MIN_BOX_AREA_RATIO = 0.00012
 
@@ -49,13 +47,11 @@ PROMPTS = [
 CONFIDENCE_THRESHOLD = 0.20
 
 # SAM3 stride برابر 14 دارد و 644 مضرب 14 است.
-# برای تست اول روی GTX 1660 Ti امن‌تر از رزولوشن‌های بالاتر است.
 IMAGE_SIZE = 644
 
 # ذخیره ماسک هر instance برای استفاده‌های بعدی
 SAVE_INSTANCE_MASKS = True
 
-# رنگ bounding box در OpenCV به صورت BGR
 BOX_COLOR = (0, 255, 0)
 
 VALID_IMAGE_EXTENSIONS = {
