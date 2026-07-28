@@ -188,3 +188,4 @@ cython_debug/
 /arhias_slam
 /outputs - Copy
 /outputs
+*.xlsx
